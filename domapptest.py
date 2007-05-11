@@ -68,16 +68,16 @@ class DOMAppTest:
             if search(r'^Test', m): ret.append(m)
         return ret
 
-    def TestSoftbootToIceboot(self):
+    def TOAtSoftbootToIceboot(self):
         self.dor.softboot()
         if not self.dor.isInIceboot():
             return "FAIL - not in iceboot"
         return "PASS"
     
-    def TestIcebootToDomapp(self):
+    def TOAstIcebootToDomapp(self):
         return "FAIL -- didn't get domapp message"
     
-    def ToastSN(self):
+    def TestSN(self):
         self.setDefaultDACs()
         self.domapp.setTriggerMode(2)
         self.domapp.setPulser(mode=FE_PULSER, rate=100)
