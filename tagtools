@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+
+# tagtools
+# John Jacobsen, NPX Designs, Inc., jacobsen\@npxdesigns.com
+# $Id: tagtools,v 1.2 2006/07/05 03:46:21 jacobsen Exp $
+
+use strict;
+
+print "Welcome to $0.\n";
+
+my $tag;
+my $bfd_or_tag;
+my $deliver;
+
+print "Enter tag name: "; $tag = <STDIN>; chomp $tag;
+
+print "Create new release with release tag \"$tag\"? ";
+chomp(my $resp = <STDIN>);
+exit if($resp !~ /^y/i);
+
+print "Did you update RELEASE_NOTES for $tag? ";
+chomp(my $resp = <STDIN>);
+exit if($resp !~ /^y/i);
+
+my $verFile = "domapp-tools-version";
+die "Can't find current $verFile!  Old version of domapp-tools?\n" unless -f $verFile;
+print "Updating $verFile...\n";
+print `cvs update -A $verFile`;
+
+sub create_verfile {
+    my $tag = shift;
+    print "Creating new $verFile...\n";
+    open H, ">$verFile" || die "Can't open $verFile: $!\n";
+    print H "$tag\n";
+    close H;
+    print "New $verFile is:\n".`cat $verFile`;
+}
+create_verfile $tag;
+
+print "Result of cvs diff --brief:\n".`cvs diff --brief`;
+
+print "Commit current version of domapp-tools to CVS? ";
+chomp(my $resp = <STDIN>);
+if($resp =~ /^y/i) {
+    print `cvs commit -m "Tagging current version as $tag..."`;
+}
+
+if($bfd_or_tag eq "TAG") {
+    print "Tag current release as $tag? ";
+    chomp(my $resp = <STDIN>);
+    if($resp =~ /^y/i) {
+	print `cd ..; cvs tag $tag domapp-tools; cd domapp-tools`;
+    }
+} elsif($bfd_or_tag eq "BFD") {
+    print "Deliver $tag? ";
+    chomp(my $resp = <STDIN>);
+    if($resp =~ /^y/i) {
+	chdir "..";
+	system "bfd deliver $deliver domapp-tools";
+	chdir "domapp-tools";
+    }
+}
+
+print "Pollute version file to show HEAD? ";
+chomp(my $resp = <STDIN>);
+if($resp =~ /^y/i) {
+    create_verfile "HEAD!";
+    print `cvs commit -m "Mod of $verFile to show HEAD..." $verFile`;
+}
+
+print "\n\nDone.\n";
+
+
+__END__
+

@@ -1,0 +1,76 @@
+#!/usr/bin/perl
+
+# domapp-versions
+# John Jacobsen, NPX Designs, Inc., jacobsen\@npxdesigns.com
+# Started: Thu Feb  2 06:02:17 2006
+
+use strict;
+
+sub reapKids;
+
+foreach my $card (0..7) {
+    foreach my $pair (0..3) {
+	foreach my $dom ('A','B') {
+	    print "$card$pair$dom ";
+	    if(`cat /proc/driver/domhub/card$card/pair$pair/dom$dom/is-communicating`
+	       =~ /is communicating/) {
+		my $pid; undef $pid;
+		while(!defined $pid) {
+		    $pid = fork;
+		    sleep 1 unless defined $pid;
+		}
+		if(! $pid) {
+		    my $outfile = ".$card$pair$dom.domapp-version";
+		    system "domapptest -V $card$pair$dom 2> $outfile 1> $outfile";
+		    exit;
+		}
+	    }
+	}
+    }
+}
+
+reapKids;
+print "\n";
+
+my %versionHash;
+
+foreach my $card (0..7) {
+    foreach my $pair (0..3) {
+        foreach my $dom ('A','B') {
+	    if(`cat /proc/driver/domhub/card$card/pair$pair/dom$dom/is-communicating`
+	       =~ /is communicating/) {
+		my $dat = `cat .$card$pair$dom.domapp-version`;
+		if($dat =~ /'(.+?)'/) {
+		    print "$card$pair$dom: $1\n";
+		    $versionHash{$1}++;
+		} else {
+		    $versionHash{"UNKNOWN"}++;
+		    print "$card$pair$dom: $dat\n";
+		}
+		unlink ".$card$pair$dom.domapp-version";
+	    }
+	}
+    }
+}
+
+foreach my $version(keys %versionHash) {
+    print "Version $version: $versionHash{$version} DOMs.\n";
+}
+
+exit;
+
+sub reapKids {
+    use POSIX ":sys_wait_h";
+    my $kid;
+    while(1) {
+        $kid = waitpid(-1, &WNOHANG);
+        if($kid == -1) {
+            last;
+        } else {
+            select(undef,undef,undef,0.01);
+        }
+    }
+}
+
+__END__
+

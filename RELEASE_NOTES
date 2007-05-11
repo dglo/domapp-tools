@@ -1,0 +1,120 @@
+domapp-tools release notes
+
+Next release:
+
+Issue 1401: Check for out-of-order timestamps (in supernova data)
+Issue 756: collect pedestals in domapp before taking compressed data
+Issue 1269: decodeeng - fix decoder bug in bele.h found by john pretz
+===========================================================
+
+V00-01-03 jacobsen@npxdesigns.com 07/04/06
+
+- Issues 537 (test for Kael SN bug), 536 (don't test HVSPETestCompr if -N flag is given to domapp_multitest.pl) and 307 (run for longer interval, look for bad SN timestamps)
+
+===========================================================
+
+V00-01-02 jacobsen@npxdesigns.com 05/01/06
+
+- fixed logic for checking correctness of trigger flags (domapp_multitest.pl)
+
+===========================================================
+
+V00-01-01 jacobsen@npxdesigns.com 05/01/06
+
+- Added "domapp-versions" script which can be run when all DOMs are running domapp.
+- Fix query HV message in domapptest
+- Catch out of order time stamps in SN data
+- Generalize LC windows and fix to match new HAL range
+
+===========================================================
+
+V00-01-00 jacobsen@npxdesigns.com 01/03/06
+Requires: moat         V00-02-00 or greater
+          domhub-tools       200 or greater
+
+- Add first version of an optional test which takes
+  long duration data with SPE triggers and 1 Hz beacons.
+  HV can be either off, in which case only beacon data will
+  show up, or on, in which case you will get both beacon
+  and SPE.  Checks for stability of domapp, and basic LC 
+  and beacon functionality.
+
+  To run: dmt -V -o -s 28800 (8 hrs, HV on)
+          dmt -o -s 28800    (8 hrs, HV off)
+
+- Fix bug in HW/CF monitoring tests
+- Support domhub-prod format in decodemoni and decodeeng
+- Supernova data taking enabled before beginning run in 
+  domapptest.c
+
+===========================================================
+
+V00-00-13 jacobsen@npxdesigns.com 12/16/05
+Requires: moat         V00-02-00 or greater
+          domhub-tools       200 or greater
+
+- Added test to verify that LC settings do not preclude
+  heartbeat event generation
+- Added option to skip above test
+
+===========================================================
+
+V00-00-12 jacobsen@npxdesigns.com 12/05/05
+Requires: moat         V00-02-00 or greater
+          domhub-tools       200 or greater
+
+- Update compressed data format
+- Removed pedestal collection/threshold setting for compressed
+  data in domapptest
+- Added option in dmt to skip compressed data tests
+
+===========================================================
+
+V00-00-11 jacobsen@npxdesigns.com 9/22/05
+Requires: moat         0.0.4 or greater
+          domhub-tools   100 or greater
+
+- Fixed bug in domapptest.c (counter prematurely incremented)
+
+===========================================================
+
+V00-00-10 jacobsen@npxdesigns.com 9/16/05
+Requires: moat         0.0.4 or greater
+          domhub-tools   100 or greater
+
+- Only one DOM per wire pair can have a flasher-related
+  test running at any given time
+
+===========================================================
+
+V00-00-09 jacobsen@npxdesigns.com 8/30/05
+Requires: moat         0.0.4 or greater
+          domhub-tools   100 or greater
+
+- Tweak to catch stderr better during tests
+- Clean up check of hit data to accommodate flasher runs
+- Increase default individual test duration to 10 sec.
+
+===========================================================
+
+V00-00-08 jacobsen@npxdesigns.com 7/13/05
+Requires: moat         0.0.4 or greater
+          domhub-tools   100 or greater
+
+- First version which works as an rpm.  Otherwise same as V00-00-07.
+
+===========================================================
+
+domapp-tools V00-00-07 jacobsen@npxdesigns.com 6/30/05
+
+- Added HV SPE tests
+- Slight modification of hit counting/rate requirements for 'hits' tests
+- Cleanup of code in domapptest.c and domapp_multitest.pl
+
+===========================================================
+
+domapp-tools V00-00-06 jacobsen@npxdesigns.com 6/23/05
+
+- Added new upload script uda.pl which uses Arthur's se program
+- Changed DMT to use uda.pl
+- Added versioning
