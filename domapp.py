@@ -110,29 +110,38 @@ class MessagingException(Exception):
         self.msg = msg
 
     def __str__(self):
+        if len(self.msg) < 8:
+            return "(Message < 8 bytes)"
         return "(%x,%x,%x,%x,%x,%x)" % unpack('>BBHHBB', self.msg)
        
 class DOMApp:
    
-    def __init__(self, card, pair, dom):
-        self.card = card
-        self.pair = pair
-        self.dom  = dom
+    def __init__(self, card, pair, dom, fd):
+        # File descriptor now passed into constructor - may be used outside of
+        # DOMApp's methods...
+        self.card    = card
+        self.pair    = pair
+        self.dom     = dom
         self.blksize = int(file(os.path.join(DRIVER_ROOT, "bufsiz")).read(100))
-        self.fd = os.open("/dev/dhc%dw%dd%s" % (card, pair, dom), os.O_RDWR)
-
+        self.fd      = fd
+        
     def __del__(self):
-        os.close(self.fd)
+        pass
        
     def sendMsg(self, type, subtype, data="", msgid=0, status=0):
         ndat = len(data)
         msg  = pack(">BBHHBB", type, subtype, ndat, 0, msgid, status) + data
         os.write(self.fd, msg)
         buf  = os.read(self.fd, self.blksize)
+        
+        if len(buf) < 8:
+            raise MessagingException(buf[0:len(buf)])
+        
         status, = unpack("B", buf[7])
+        
         if status != 0x01:
-            print >>stderr, "Message Error: %s" % MessagingException(buf[0:8])
-            # raise MessagingException(buf[0:8])
+            # print >>stderr, "Message Error: %s" % MessagingException(buf[0:8])
+            raise MessagingException(buf[0:8])
         return buf[8:]
 
     def getMainboardID(self):
