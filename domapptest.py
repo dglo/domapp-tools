@@ -13,6 +13,10 @@ from dor import Driver
 from re import search
 from domapp import *
 
+def hackTime():
+        yr, mo, da, hr, mn, sc = time.localtime()
+        return da*86400 + hr*3600 + mn*60 + sc
+    
 def SNClockOk(clock, prevClock, bins, prevBins):
     DT = 65536
     if clock != prevClock + prevBins*DT: return False
@@ -59,6 +63,24 @@ class MiniDor:
         raise ExpectStringNotFoundException("Expected string '%s' did not arrive in %d msec:\n%s" \
                                             % (expectStr, timeoutMsec, contents))
 
+    def readExpectNew(self, file, expectStr, timeoutMsec=5000):
+        "Read from dev file until expected string arrives - throw exception if it doesn't"
+        contents = ""
+        #start    = datetime.datetime.now()
+        #dtsec    = int(timeoutMsec)/1000
+        #dtusec   = (int(timeoutMsec)%1000)*1000
+        # while datetime.datetime.now()-start < datetime.timedelta(seconds=dtsec, microseconds=dtusec):
+        start = hackTime()
+        print "start: %d" % start
+        while True: # hackTime()-start < timeoutMsec/1000.:
+            contents += os.read(self.fd, self.blockSize)
+            if search(expectStr, contents):
+                # break #<-- put this back to simulate failure
+                return True
+            time.sleep(0.10)
+        raise ExpectStringNotFoundException("Expected string '%s' did not arrive in %d msec:\n%s" \
+                                            % (expectStr, timeoutMsec, contents))
+
     def se(self, send, recv, timeout):
         "Send text, wait for recv text in timeout msec"
         try:
@@ -76,14 +98,14 @@ class MiniDor:
         ok, txt = self.se("domapp\r\n", "domapp", 1000)
         if ok: time.sleep(3)
         return (ok, txt)
-    
-STATE_ICEBOOT    = "ib"
-STATE_DOMAPP     = "da"
-STATE_CONFIGBOOT = "cb"
-STATE_ECHO       = "em"
-STATE_UNKNOWN    = "??"
 
 class DOMTest:
+    STATE_ICEBOOT    = "ib"
+    STATE_DOMAPP     = "da"
+    STATE_CONFIGBOOT = "cb"
+    STATE_ECHO       = "em"
+    STATE_UNKNOWN    = "??"
+    
     def __init__(self, card, wire, dom, dor, start=STATE_ICEBOOT, end=STATE_ICEBOOT):
         self.card       = card
         self.wire       = wire
@@ -113,39 +135,43 @@ class DOMTest:
     
 class ConfigbootToIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_CONFIGBOOT, end=STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         ok, txt = self.dor.configbootToIceboot()
         if not ok:
-            self.result = "FAIL - could not transition into iceboot"
+            self.result = "FAIL"
+            self.debugMsgs.append("Could not transition into iceboot")
             self.debugMsgs.append(txt)
         else:
             ok, txt = self.dor.isInIceboot()
             if not ok:
-                self.result = "FAIL - check of iceboot prompt failed"
+                self.result = "FAIL"
+                self.debugMsgs.append("check for iceboot prompt failed")
                 self.debugMsgs.append(txt)
             else:
                 self.result = "PASS"
                         
 class DomappToIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_DOMAPP, end=STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         self.dor.softboot()
         ok, txt = self.dor.isInIceboot()
         if not ok:
-            self.result = "FAIL - check of iceboot prompt failed"
+            self.result = "FAIL"
+            self.debugMsgs.append("check for iceboot prompt failed")
             self.debugMsgs.append(txt)
         else:
             self.result = "PASS"
 
 class IcebootToDomapp(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_ICEBOOT, end=STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_DOMAPP)
     def run(self, fd):
         ok, txt = self.dor.icebootToDomapp()
         if not ok:        
-            self.result = "FAIL - could not transition into domapp"
+            self.result = "FAIL"
+            self.debugMsgs.append("could not transition into domapp")
             self.debugMsgs.append(txt)
         else:
             # FIXME - test w/ domapp message here
@@ -153,45 +179,49 @@ class IcebootToDomapp(DOMTest):
 
 class CheckIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_ICEBOOT, end=STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         ok, txt = self.dor.isInIceboot()
         if not ok:
-            self.result = "FAIL - check of iceboot prompt failed"
+            self.result = "FAIL"
+            self.debugMsgs.append("check for iceboot prompt failed")
             self.debugMsgs.append(txt)
         else:
             self.result = "PASS"
             
 class IcebootToConfigboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_ICEBOOT, end=STATE_CONFIGBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_CONFIGBOOT)
     def run(self, fd):
         ok, txt = self.dor.icebootToConfigboot()
         if not ok:
-            self.result = "FAIL - could not transition into configboot"
+            self.result = "FAIL"
+            self.debugMsgs.append("could not transition into configboot")
             self.debugMsgs.append(txt)
         else:
             ok, txt =  self.dor.isInConfigboot()
             if not ok:
-                self.result = "FAIL - check of configboot prompt failed"
+                self.result = "FAIL"
+                self.debugMsgs.append("check for iceboot prompt failed")
                 self.debugMsgs.append(txt)
             else:
                 self.result = "PASS"
 
 class CheckConfigboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_CONFIGBOOT, end=STATE_CONFIGBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_CONFIGBOOT)
     def run(self, fd):
         ok, txt = self.dor.isInConfigboot()
         if not ok:
-            self.result = "FAIL - check of configboot prompt failed"
+            self.result = "FAIL"
+            self.debugMsgs.append("check for iceboot prompt failed")
             self.debugMsgs.append(txt)
         else:
             self.result = "PASS"
 
 class GetDomappRelease(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_DOMAPP, end=STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
     def run(self, fd):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         try:
@@ -201,31 +231,94 @@ class GetDomappRelease(DOMTest):
             self.result = "FAIL"
             self.debugMsgs.append(exc_string())
 
-class SNTest(DOMTest):
+class DOMIDTest(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=STATE_DOMAPP, end=STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+    def run(self, fd):
+        domapp = DOMApp(self.card, self.wire, self.dom, fd)
+        try:
+            self.summary = domapp.getMainboardID()
+            self.result = "PASS"
+        except Exception, e:
+            self.result = "FAIL"
+            self.debugMsgs.append(exc_string())
 
-    def setDAC(self, domapp, dac, val): domapp.writeDAC(dac, val)
+def setDAC(domapp, dac, val): domapp.writeDAC(dac, val)
+def setDefaultDACs(domapp):
+    setDAC(domapp, DAC_ATWD0_TRIGGER_BIAS, 850)
+    setDAC(domapp, DAC_ATWD1_TRIGGER_BIAS, 850)
+    setDAC(domapp, DAC_ATWD0_RAMP_RATE, 350)
+    setDAC(domapp, DAC_ATWD1_RAMP_RATE, 350)
+    setDAC(domapp, DAC_ATWD0_RAMP_TOP, 2300)
+    setDAC(domapp, DAC_ATWD1_RAMP_TOP, 2300)
+    setDAC(domapp, DAC_ATWD_ANALOG_REF, 2250)
+    setDAC(domapp, DAC_PMT_FE_PEDESTAL, 2130)
+    setDAC(domapp, DAC_SINGLE_SPE_THRESH, 560)
+    setDAC(domapp, DAC_MULTIPLE_SPE_THRESH, 650)
+    setDAC(domapp, DAC_FADC_REF, 800)
+    setDAC(domapp, DAC_INTERNAL_PULSER_AMP, 80)
 
-    def setDefaultDACs(self, domapp):
-        self.setDAC(domapp, DAC_ATWD0_TRIGGER_BIAS, 850)
-        self.setDAC(domapp, DAC_ATWD1_TRIGGER_BIAS, 850)
-        self.setDAC(domapp, DAC_ATWD0_RAMP_RATE, 350)
-        self.setDAC(domapp, DAC_ATWD1_RAMP_RATE, 350)
-        self.setDAC(domapp, DAC_ATWD0_RAMP_TOP, 2300)
-        self.setDAC(domapp, DAC_ATWD1_RAMP_TOP, 2300)
-        self.setDAC(domapp, DAC_ATWD_ANALOG_REF, 2250)
-        self.setDAC(domapp, DAC_PMT_FE_PEDESTAL, 2130)
-        self.setDAC(domapp, DAC_SINGLE_SPE_THRESH, 560)
-        self.setDAC(domapp, DAC_MULTIPLE_SPE_THRESH, 650)
-        self.setDAC(domapp, DAC_FADC_REF, 800)
-        self.setDAC(domapp, DAC_INTERNAL_PULSER_AMP, 80)
+def unpackMoni(monidata):
+    while monidata and len(monidata)>=4:
+        moniLen, moniType = unpack('>hh', monidata[0:4])
+        if moniType == 0xCB:
+            msg = monidata[10:moniLen]
+            yield msg
+        monidata = monidata[moniLen:]
+
+class DeltaCompressionBeaconTest(DOMTest):
+    def __init__(self, card, wire, dom, dor):
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
 
     def run(self, fd):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         self.result = "PASS"
         try:
-            self.setDefaultDACs(domapp)
+            setDefaultDACs(domapp)
+            domapp.setTriggerMode(2)
+            domapp.setPulser(mode=BEACON, rate=10)
+            domapp.selectMUX(255)
+            domapp.resetMonitorBuffer()
+            domapp.setTriggerMode(1)
+            domapp.setMonitoringIntervals()
+            # Set delta compression format
+            domapp.setDataFormat(1)
+            domapp.setCompressionMode(2)
+            domapp.startRun()
+        except Exception, e:
+            self.result = "FAIL"
+            self.debugMsgs.append(exc_string())
+            try:
+                monidata = domapp.getMonitorData()
+                for msg in unpackMoni(monidata):
+                    self.debugMsgs.append(msg)
+            except Exception, e:
+                self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
+            return
+
+        # collect data
+        #tstart = datetime.datetime.now()
+        #while datetime.datetime.now()-tstart < datetime.timedelta(seconds=self.runLength):
+        #tstart = hackTime()
+        #while hackTime()-tstart < self.runLength:
+        #    time.sleep(1)
+            
+        # end run
+        try:
+            domapp.endRun()
+        except Exception, e:
+            self.result = "FAIL"
+            self.debugMsgs.append("END RUN FAILED: %s" % exc_string())
+
+class SNTest(DOMTest):
+    def __init__(self, card, wire, dom, dor):
+        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+
+    def run(self, fd):
+        domapp = DOMApp(self.card, self.wire, self.dom, fd)
+        self.result = "PASS"
+        try:
+            setDefaultDACs(domapp)
             domapp.setTriggerMode(2)
             domapp.setPulser(mode=FE_PULSER, rate=100)
             domapp.selectMUX(255)
@@ -250,22 +343,19 @@ class SNTest(DOMTest):
                 self.result = "FAIL"
                 self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
                 break
-            
-            while monidata and len(monidata)>=4:
-                moniLen, moniType = unpack('>hh', monidata[0:4])
-                if moniType == 0xCB:
-                    msg = monidata[10:moniLen]
-                    self.debugMsgs.append(msg)
-                monidata = monidata[moniLen:]
-                
+
+            for msg in unpackMoni(monidata):
+                self.debugMsgs.append(msg)
+
             # Fetch supernova
+
             try:
                 sndata = domapp.getSupernovaData()
             except Exception, e:
                 self.result = "FAIL"
                 self.debugMsgs.append("GET SN DATA FAILED: %s" % exc_string())
                 break
-            
+
             if sndata      == None: continue
             if len(sndata) == 0:    continue
             if len(sndata) < 10:
@@ -300,7 +390,8 @@ class SNTest(DOMTest):
             self.debugMsgs.append("END RUN FAILED: %s" % exc_string())
                     
 
-class TestSet2:
+class TestingSet:
+    "Class for running multiple tests on a group of DOMs in parallel"
     def __init__(self, domDict, testNameList):
         self.domDict     = domDict
         self.testList    = testNameList
@@ -311,6 +402,12 @@ class TestSet2:
         self.counterLock = threading.Lock()
         
     def cycle(self, testList, startState, c, w, d):
+        """
+        Cycle through all tests, visiting first all the ones in the current state, then
+        moving on to another state, and so on until all in-state and state-change tests
+        have completed
+        """
+        
         state = startState
         doneDict = {}
         while True:
@@ -335,7 +432,7 @@ class TestSet2:
             yield nextTest
 
     def doAllTests(self, domid, c, w, d):
-        startState = STATE_ICEBOOT
+        startState = DOMTest.STATE_ICEBOOT
         testObjList = []
         dor = MiniDor(c, w, d)
         dor.open()
@@ -347,7 +444,7 @@ class TestSet2:
                 dor.close()
                 dor.open()
                     
-            #### LOCK
+            #### LOCK - have to protect shared counters, as well as TTY...
             self.counterLock.acquire()
             print "%s%s%s %s->%s %s: %s %s" % (c,w,d, test.startState,
                                                      test.endState, test.name(), test.result, test.summary)
@@ -363,67 +460,23 @@ class TestSet2:
             
     def runThread(self, domid):
         c, w, d = self.domDict[domid]
-        # print "Running thread for %s: %s %s %s" % (domid, c, w, d)
         self.doAllTests(domid, c,w,d)
         
     def go(self): 
         for dom in self.domDict:
-            # print dom, self.domDict[dom]
             self.threads[dom] = threading.Thread(target=self.runThread, args=(dom, ))
             self.threads[dom].start()
         for dom in self.domDict:
-            self.threads[dom].join()
+            try:
+                self.threads[dom].join()
+            except KeyboardException:
+                raise SystemExit
+            except Exception, e:
+                print exc_string()
+                raise SystemExit
         
     def summary(self):
         "show summary of results"
-        return "Passed tests: %d   Failed tests: %d   Total: %d" % (self.numpassed,
-                                                                    self.numfailed,
-                                                                    self.numtests)
-
-class TestSet:
-    def __init__(self, domDict):
-        self.domDict   = domDict
-        self.threads   = {}
-        self.numpassed = 0
-        self.numfailed = 0
-        self.numtests  = 0
-        
-    def doAllTests(self, domid, c, w, d):
-        r = DOMAppTest(c, w, d)
-        r.setRunLength(10)
-        tests = r.getTests()
-        tests.reverse()
-        for test in tests:
-            status = eval("r.%s()" % test)
-            print "%s%s%s %s: %s" % (c,w,d, test, status)
-            if status == "PASS":
-                self.numpassed += 1
-            else:
-                self.numfailed += 1
-                dbg = r.getDebugTxt()
-                if len(dbg) > 0: print r.getDebugTxt()
-                
-            self.numtests += 1
-            # print "%d %d %d" % (self.numpassed, self.numfailed, self.numtests)
-
-    def runThread(self, domid):
-        c, w, d = self.domDict[domid]
-        print "Running thread for %s: %s %s %s" % (domid, c, w, d)
-        self.doAllTests(domid, c,w,d)
-        
-    def go(self): 
-        for dom in self.domDict:
-            # print dom, self.domDict[dom]
-            self.threads[dom] = threading.Thread(target=self.runThread, args=(dom, ))
-            self.threads[dom].start()
-            break
-        for dom in self.domDict:
-            self.threads[dom].join()
-            break
-        
-    def summary(self):
-        "show summary of results"
-        # FIXME - make counters thread-safe (currently they seem racy)
         return "Passed tests: %d   Failed tests: %d   Total: %d" % (self.numpassed,
                                                                     self.numfailed,
                                                                     self.numtests)
@@ -432,12 +485,16 @@ def main():
     dor = Driver()
     domDict = dor.get_active_doms()
     
-    startState = STATE_ICEBOOT
+    startState = DOMTest.STATE_ICEBOOT # FIXME: what if it's not?
     
-    testNameList = (IcebootToConfigboot, CheckIceboot, ConfigbootToIceboot, IcebootToDomapp, 
-                    DomappToIceboot, CheckConfigboot, GetDomappRelease, SNTest)
+    ListOfTests = (IcebootToConfigboot, CheckConfigboot, ConfigbootToIceboot,
+                   CheckIceboot, IcebootToDomapp, 
+                   GetDomappRelease, DOMIDTest,
+                   DeltaCompressionBeaconTest,
+                   SNTest,
+                   DomappToIceboot)
     
-    testSet = TestSet2(domDict, testNameList)
+    testSet = TestingSet(domDict, ListOfTests)
     testSet.go()
     print testSet.summary()
     

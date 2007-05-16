@@ -112,7 +112,7 @@ class MessagingException(Exception):
     def __str__(self):
         if len(self.msg) < 8:
             return "(Message < 8 bytes)"
-        return "(%x,%x,%x,%x,%x,%x)" % unpack('>BBHHBB', self.msg)
+        return "(MT=%d,MST=%d,LEN=%d,0x%04x,ID=0x%02x,STATUS=0x%02x)" % unpack('>BBHHBB', self.msg)
        
 class DOMApp:
    
@@ -171,6 +171,22 @@ class DOMApp:
         """
         return unpack(">2H", self.sendMsg(DOM_SLOW_CONTROL, DSC_QUERY_PMT_HV))
 
+    def setDataFormat(self, fmt):
+        """
+        Set data format
+        fmt = 0: engineering format
+        fmt = 1: default compression
+        """
+        self.sendMsg(DATA_ACCESS, DATA_ACC_SET_DATA_FORMAT, data=pack('b', fmt))
+
+    def setCompressionMode(self, mode):
+        """
+        Set compression mode
+        mode = 0: none (default)
+        mode = 1: compressed data (delta compression)
+        """
+        self.sendMsg(DATA_ACCESS, DATA_ACC_SET_COMP_MODE, data=pack('b', mode))
+        
     def setTriggerMode(self, mode):
         """
         Set the DOM triggering mode
