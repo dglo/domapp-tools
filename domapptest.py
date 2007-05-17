@@ -38,19 +38,23 @@ class DeltaHit:
         self.natwdch = (self.words[0] & 0x3000) >> 12
         self.trigger = (self.words[0] & 0x7ffe0000) >> 18
         self.atwd_avail = ((self.words[0] & 0x4000) != 0)
+        self.atwd_chip  = (self.words[0] & 0x0800) >> 11
+        self.fadc_avail = ((self.words[0] & 0x8000) != 0)
         if self.trigger & 0x01: self.is_spe    = True
         else:                   self.is_spe    = False
         if self.trigger & 0x02: self.is_mpe    = True
         else:                   self.is_mpe    = False
         if self.trigger & 0x04: self.is_beacon = True
         else:                   self.is_beacon = False
-        print "W0 0x%08x 0x%08x len=%d atwds=%d" % \
-              (self.words[0], self.words[1], self.hitsize, self.natwdch)
+
     def __repr__(self):
         return """
-Hit size = %4d     ATWD avail   = %4d
-#ATWDs   = %4d     Trigger word = 0x%04x
-"""                         % (self.hitsize, self.atwd_avail, self.natwdch, self.trigger)
+W0 0x%08x W1 0x%08x
+Hit size = %4d     ATWD avail   = %4d     FADC avail = %4d
+A/B      = %4d     ATWD#        = %4d     Trigger word = 0x%04x
+"""                         % (self.words[0], self.words[1], self.hitsize,
+                               self.atwd_avail, self.fadc_avail,
+                               self.atwd_chip, self.natwdch, self.trigger)
 
 class DeltaHitBuf:
     def __init__(self, hitdata):
@@ -373,7 +377,7 @@ class DeltaCompressionBeaconTest(DOMTest):
                 if len(hitdata) > 0:
                     hitBuf = DeltaHitBuf(hitdata)
                     for hit in hitBuf.next():
-                        if hit.is_beacon and hit.natwdch < 4:
+                        if hit.is_beacon and hit.natwdch < 3:
                             self.debugMsgs.append("Beacon hit has insufficient readouts!!!")
                             self.debugMsgs.append(`hit`)
                             good = False
