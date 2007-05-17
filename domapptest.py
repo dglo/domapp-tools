@@ -12,17 +12,63 @@ import os.path
 from dor import Driver
 from re import search
 from domapp import *
+import optparse
+from minitimer import MiniTimer
+from slchit import *
 
-def hackTime():
-        yr, mo, da, hr, mn, sc = time.localtime()
-        return da*86400 + hr*3600 + mn*60 + sc
-    
 def SNClockOk(clock, prevClock, bins, prevBins):
     DT = 65536
     if clock != prevClock + prevBins*DT: return False
     return True
 
 class ExpectStringNotFoundException(Exception): pass
+class WriteTimeoutException(Exception):         pass
+
+EAGAIN   = 11    
+
+class MalformedDeltaCompressedHitBuffer(Exception): pass
+
+class DeltaHit:
+    def __init__(self, hitbuf):
+        self.words   = unpack('<2i', hitbuf[0:8])
+        iscompressed = (self.words[0] & 0x80000000) >> 31
+        if not iscompressed:
+            raise MalformedDeltaCompressedHitBuffer("no compression bit found")
+        self.hitsize = self.words[0] & 0x7FF
+        self.natwdch = (self.words[0] & 0x3000) >> 12
+        self.trigger = (self.words[0] & 0x7ffe0000) >> 18
+        self.atwd_avail = ((self.words[0] & 0x4000) != 0)
+        if self.trigger & 0x01: self.is_spe    = True
+        else:                   self.is_spe    = False
+        if self.trigger & 0x02: self.is_mpe    = True
+        else:                   self.is_mpe    = False
+        if self.trigger & 0x04: self.is_beacon = True
+        else:                   self.is_beacon = False
+        print "W0 0x%08x 0x%08x len=%d atwds=%d" % \
+              (self.words[0], self.words[1], self.hitsize, self.natwdch)
+    def __repr__(self):
+        return """
+Hit size = %4d     ATWD avail   = %4d
+#ATWDs   = %4d     Trigger word = 0x%04x
+"""                         % (self.hitsize, self.atwd_avail, self.natwdch, self.trigger)
+
+class DeltaHitBuf:
+    def __init__(self, hitdata):
+        if len(hitdata) < 8: raise MalformedDeltaCompressedHitBuffer()
+        junk, nb   = unpack('>HH', hitdata[0:4])
+        junk, tmsb = unpack('>HH', hitdata[4:8])
+        nb -= 8
+        # print "len %d tmsb %d" % (nb, tmsb)
+        if nb <= 0: raise MalformedDeltaCompressedHitBuffer()
+        self.payload = hitdata[8:]
+        
+    def next(self):
+        rest = self.payload
+        while(len(rest) > 8):
+            words = unpack('<2i', rest[0:8])
+            hitsize = words[0] & 0x7FF
+            yield DeltaHit(rest[0:hitsize])
+            rest = rest[hitsize:]
 
 class MiniDor:
     def __init__(self, card=0, wire=0, dom='A'):
@@ -52,10 +98,15 @@ class MiniDor:
     def readExpect(self, file, expectStr, timeoutMsec=5000):
         "Read from dev file until expected string arrives - throw exception if it doesn't"
         contents = ""
-        start    = time.clock()
-        dt       = timeoutMsec/1000.
-        while time.clock()-start < timeoutMsec:
-            contents += os.read(self.fd, self.blockSize)
+        t = MiniTimer(timeoutMsec)
+        while not t.expired():
+            try:
+                contents += os.read(self.fd, self.blockSize)
+            except OSError, e:
+                if e.errno == EAGAIN: time.sleep(0.01) # Nothing available
+                else: raise
+            except Exception: raise
+
             if search(expectStr, contents):
                 # break #<-- put this back to simulate failure
                 return True
@@ -63,39 +114,35 @@ class MiniDor:
         raise ExpectStringNotFoundException("Expected string '%s' did not arrive in %d msec:\n%s" \
                                             % (expectStr, timeoutMsec, contents))
 
-    def readExpectNew(self, file, expectStr, timeoutMsec=5000):
-        "Read from dev file until expected string arrives - throw exception if it doesn't"
-        contents = ""
-        #start    = datetime.datetime.now()
-        #dtsec    = int(timeoutMsec)/1000
-        #dtusec   = (int(timeoutMsec)%1000)*1000
-        # while datetime.datetime.now()-start < datetime.timedelta(seconds=dtsec, microseconds=dtusec):
-        start = hackTime()
-        print "start: %d" % start
-        while True: # hackTime()-start < timeoutMsec/1000.:
-            contents += os.read(self.fd, self.blockSize)
-            if search(expectStr, contents):
-                # break #<-- put this back to simulate failure
-                return True
-            time.sleep(0.10)
-        raise ExpectStringNotFoundException("Expected string '%s' did not arrive in %d msec:\n%s" \
-                                            % (expectStr, timeoutMsec, contents))
+    def writeTimeout(self, fd, msg, timeoutMsec):
+        nb0   = len(msg)
+        t = MiniTimer(timeoutMsec)
+        while not t.expired():
+            try:
+                nb = os.write(self.fd, msg)
+                if nb==len(msg): return
+                msg = msg[nb:]
+            except OSError, e:
+                if e.errno == EAGAIN: time.sleep(0.01)
+                else: raise
+            except Exception: raise
+        raise WriteTimeoutException("Failed to write %d bytes to fd %d" % (nb0, fd))
 
     def se(self, send, recv, timeout):
         "Send text, wait for recv text in timeout msec"
         try:
-            os.write(self.fd, send)
+            self.writeTimeout(self.fd, send, timeout)
             self.readExpect(self.fd, recv, timeout)
         except Exception, e:
-            return (False, exc_string)
+            return (False, exc_string())
         return (True, "")
     
-    def isInIceboot(self):         return self.se("\r\n", ">", 1000)
-    def isInConfigboot(self):      return self.se("\r\n", "#", 1000)
+    def isInIceboot(self):         return self.se("\r\n", ">", 3000)
+    def isInConfigboot(self):      return self.se("\r\n", "#", 3000)
     def configbootToIceboot(self): return self.se("r",    ">", 5000)
     def icebootToConfigboot(self): return self.se("boot-serial reboot\r\n", "#", 5000)            
     def icebootToDomapp(self):
-        ok, txt = self.se("domapp\r\n", "domapp", 1000)
+        ok, txt = self.se("domapp\r\n", "domapp", 2000)
         if ok: time.sleep(3)
         return (ok, txt)
 
@@ -132,10 +179,11 @@ class DOMTest:
         return str
     
     def run(self, fd): pass
-    
+
 class ConfigbootToIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         ok, txt = self.dor.configbootToIceboot()
         if not ok:
@@ -153,7 +201,8 @@ class ConfigbootToIceboot(DOMTest):
                         
 class DomappToIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         self.dor.softboot()
         ok, txt = self.dor.isInIceboot()
@@ -166,7 +215,8 @@ class DomappToIceboot(DOMTest):
 
 class IcebootToDomapp(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_DOMAPP)
     def run(self, fd):
         ok, txt = self.dor.icebootToDomapp()
         if not ok:        
@@ -179,7 +229,8 @@ class IcebootToDomapp(DOMTest):
 
 class CheckIceboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_ICEBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_ICEBOOT)
     def run(self, fd):
         ok, txt = self.dor.isInIceboot()
         if not ok:
@@ -191,7 +242,8 @@ class CheckIceboot(DOMTest):
             
 class IcebootToConfigboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_CONFIGBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_ICEBOOT, end=DOMTest.STATE_CONFIGBOOT)
     def run(self, fd):
         ok, txt = self.dor.icebootToConfigboot()
         if not ok:
@@ -209,7 +261,8 @@ class IcebootToConfigboot(DOMTest):
 
 class CheckConfigboot(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_CONFIGBOOT)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_CONFIGBOOT, end=DOMTest.STATE_CONFIGBOOT)
     def run(self, fd):
         ok, txt = self.dor.isInConfigboot()
         if not ok:
@@ -221,7 +274,8 @@ class CheckConfigboot(DOMTest):
 
 class GetDomappRelease(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
     def run(self, fd):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         try:
@@ -233,7 +287,8 @@ class GetDomappRelease(DOMTest):
 
 class DOMIDTest(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
     def run(self, fd):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         try:
@@ -268,7 +323,8 @@ def unpackMoni(monidata):
 
 class DeltaCompressionBeaconTest(DOMTest):
     def __init__(self, card, wire, dom, dor):
-        DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
 
     def run(self, fd):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
@@ -276,15 +332,15 @@ class DeltaCompressionBeaconTest(DOMTest):
         try:
             setDefaultDACs(domapp)
             domapp.setTriggerMode(2)
-            domapp.setPulser(mode=BEACON, rate=10)
+            domapp.setPulser(mode=BEACON, rate=100)
             domapp.selectMUX(255)
             domapp.resetMonitorBuffer()
-            domapp.setTriggerMode(1)
             domapp.setMonitoringIntervals()
             # Set delta compression format
-            domapp.setDataFormat(1)
+            domapp.setDataFormat(2)
             domapp.setCompressionMode(2)
             domapp.startRun()
+        # fixme - collect moni for ALL failures
         except Exception, e:
             self.result = "FAIL"
             self.debugMsgs.append(exc_string())
@@ -297,11 +353,39 @@ class DeltaCompressionBeaconTest(DOMTest):
             return
 
         # collect data
-        #tstart = datetime.datetime.now()
-        #while datetime.datetime.now()-tstart < datetime.timedelta(seconds=self.runLength):
-        #tstart = hackTime()
-        #while hackTime()-tstart < self.runLength:
-        #    time.sleep(1)
+        t = MiniTimer(5000)
+        while not t.expired():
+            # Fetch monitoring
+            try:
+                monidata = domapp.getMonitorData()
+            except Exception, e:
+                self.result = "FAIL"
+                self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
+                break
+
+            for msg in unpackMoni(monidata):
+                self.debugMsgs.append(msg)
+
+            # Fetch hit data
+            good = True
+            try:
+                hitdata = domapp.getWaveformData()
+                if len(hitdata) > 0:
+                    hitBuf = DeltaHitBuf(hitdata)
+                    for hit in hitBuf.next():
+                        if hit.is_beacon and hit.natwdch < 4:
+                            self.debugMsgs.append("Beacon hit has insufficient readouts!!!")
+                            self.debugMsgs.append(`hit`)
+                            good = False
+                            break
+            except Exception, e:
+                self.result = "FAIL"
+                self.debugMsgs.append("GET WAVEFORM DATA FAILED: %s" % exc_string())
+                break
+            
+            if not good:
+                self.result = "FAIL"
+                break
             
         # end run
         try:
@@ -392,7 +476,7 @@ class SNTest(DOMTest):
 
 class TestingSet:
     "Class for running multiple tests on a group of DOMs in parallel"
-    def __init__(self, domDict, testNameList):
+    def __init__(self, domDict, testNameList, stopOnFail=False):
         self.domDict     = domDict
         self.testList    = testNameList
         self.threads     = {}
@@ -400,6 +484,7 @@ class TestingSet:
         self.numfailed   = 0
         self.numtests    = 0
         self.counterLock = threading.Lock()
+        self.stopOnFail  = stopOnFail
         
     def cycle(self, testList, startState, c, w, d):
         """
@@ -443,7 +528,8 @@ class TestingSet:
             if(test.startState != test.endState): # If state change, flush buffers etc. to get clean IO
                 dor.close()
                 dor.open()
-                    
+
+            sf = False
             #### LOCK - have to protect shared counters, as well as TTY...
             self.counterLock.acquire()
             print "%s%s%s %s->%s %s: %s %s" % (c,w,d, test.startState,
@@ -454,9 +540,11 @@ class TestingSet:
                 self.numfailed += 1
                 dbg = test.getDebugTxt()
                 if len(dbg) > 0: print test.getDebugTxt()
+                if self.stopOnFail: sf = True
             self.numtests += 1
             self.counterLock.release()
             #### UNLOCK
+            if sf: return # Quit upon first failure
             
     def runThread(self, domid):
         c, w, d = self.domDict[domid]
@@ -482,7 +570,16 @@ class TestingSet:
                                                                     self.numtests)
 
 def main():
+    p = optparse.OptionParser()
+
+    p.add_option("-s", "--stop-fail",
+                 action="store_true",
+                 dest="stopFail",     help="Stop at first failure for each DOM")
+    p.set_defaults(stopFail         = False)
+    opt, args = p.parse_args()
+    
     dor = Driver()
+    dor.enable_blocking(0)
     domDict = dor.get_active_doms()
     
     startState = DOMTest.STATE_ICEBOOT # FIXME: what if it's not?
@@ -494,7 +591,7 @@ def main():
                    SNTest,
                    DomappToIceboot)
     
-    testSet = TestingSet(domDict, ListOfTests)
+    testSet = TestingSet(domDict, ListOfTests, opt.stopFail)
     testSet.go()
     print testSet.summary()
     

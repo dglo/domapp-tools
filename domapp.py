@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import os
+import os, time
 from sys import stderr
 from struct import pack, unpack
 from xml.sax import parse
+from minitimer import MiniTimer
 
 # Message facility typecodes
 MESSAGE_HANDLER     = 1
@@ -113,7 +114,7 @@ class MessagingException(Exception):
         if len(self.msg) < 8:
             return "(Message < 8 bytes)"
         return "(MT=%d,MST=%d,LEN=%d,0x%04x,ID=0x%02x,STATUS=0x%02x)" % unpack('>BBHHBB', self.msg)
-       
+
 class DOMApp:
    
     def __init__(self, card, pair, dom, fd):
@@ -127,13 +128,28 @@ class DOMApp:
         
     def __del__(self):
         pass
-       
-    def sendMsg(self, type, subtype, data="", msgid=0, status=0):
+
+    def sendMsg(self, type, subtype, data="", msgid=0, status=0, timeout=5000):
         ndat = len(data)
         msg  = pack(">BBHHBB", type, subtype, ndat, 0, msgid, status) + data
+        EAGAIN = 11
+        # FIXME: handle failed (would-block) writes
         os.write(self.fd, msg)
-        buf  = os.read(self.fd, self.blksize)
-        
+        t = MiniTimer(timeout)
+        buf = ""
+        while not t.expired():
+            try:
+                buf  += os.read(self.fd, self.blksize)
+            except OSError, e:
+                if e.errno == EAGAIN: time.sleep(0.001) # Nothing available
+                else: raise
+            except Exception: raise
+
+            if len(buf) >= 8:
+                msglen, = unpack('>H', buf[2:4])
+                # FIXME - worry about second message in next portion of write
+                if len(buf) >= msglen+8: break
+                    
         if len(buf) < 8:
             raise MessagingException(buf[0:len(buf)])
         
