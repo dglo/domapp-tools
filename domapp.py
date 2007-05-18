@@ -301,7 +301,13 @@ class DOMApp:
         self.sendMsg(EXPERIMENT_CONTROL, EXPCONTROL_DO_PEDESTAL_COLLECTION,
                      data=pack(">3I", natwd0, natwd1, nfadc)
                      )
-       
+
+    def getPedestalAverages(self):
+        return self.sendMsg(EXPERIMENT_CONTROL, EXPCONTROL_GET_PEDESTAL_AVERAGES)
+
+    def getNumPedestals(self):
+        return self.sendMsg(EXPERIMENT_CONTROL, EXPCONTROL_GET_NUM_PEDESTALS)
+
     def setLC(self, **lc_opts):
         """
         Setup DOM local coincidence:
