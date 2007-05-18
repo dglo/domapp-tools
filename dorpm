@@ -27,19 +27,16 @@ print "RPM version is $rpmver.\n";
 
 chdir ".." or die "Can't CD .. : $!\n";
 
-# RPM build area
-my $RPM_ROOT = "$ENV{HOME}/rpmbuild";
-
 my $r;
 $r = `rm -rf $verproj 2>&1`; die "$r\n" unless $r eq "";
 $r = `cp -Rp $project $verproj 2>&1`; die "$r\n" unless $r eq "";
 $r = `tar czf /tmp/$verproj.tgz --exclude=$verproj/CVS $verproj 2>&1`;
 die "$r\n" unless $r eq "";
-$r = `cp /tmp/$verproj.tgz ${RPM_ROOT}/SOURCES 2>&1`; die "$r\n" unless $r eq "";
-$r = `cp $verproj/$project.spec ${RPM_ROOT}/SPECS/$verproj.spec 2>&1`; 
+$r = `sudo cp /tmp/$verproj.tgz /usr/src/redhat/SOURCES 2>&1`; die "$r\n" unless $r eq "";
+$r = `sudo cp $verproj/$project.spec /usr/src/redhat/SPECS/$verproj.spec 2>&1`; 
 die "$r\n" unless $r eq "";
-chdir "${RPM_ROOT}" or die "Can't CD to ${RPM_ROOT}: $!\n";
-system "rpmbuild -ba -D 'VER $rpmver' -D 'REL 0' SPECS/$verproj.spec 2>&1";
+chdir "/usr/src/redhat" or die "Can't CD to /usr/src/redhat: $!\n";
+system "sudo rpmbuild -ba -D 'VER $rpmver' -D 'REL 0' SPECS/$verproj.spec 2>&1";
 print $r;
 $r = `rm -rf $verproj 2>&1`; die "$r\n" unless $r eq "";
 

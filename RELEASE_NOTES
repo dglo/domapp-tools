@@ -1,47 +1,5 @@
 domapp-tools release notes
 
-V00-02-06 jkelley@icecube.wisc.edu 11/25/2019
-
-Issue 8757: decodesn doesn't accept -p payload format argument
-
-===========================================================
-
-V00-02-05 jkelley@icecube.wisc.edu 10/16/17
-
-Issue 8279: RPM upgrade resulted in no dmt alias installed
-Issue 8175: domapptest lost compatibility?
-
-===========================================================
-
-V00-02-04 john@mail.npxdesigns.com 02/29/08
-
-Issue 2384: "Forced trigger data" failures with DMT in 431, 432(rc).
-
-===========================================================
-
-V00-02-03 john@mail.npxdesigns.com 11/19/07
-
-Issue 2005: dmt: Allow user to run in foreground (don't 'daemonize')
-Issue 1846: dmt: Wait for DOMAPP READY after starting domapp
-
-===========================================================
-
-V00-02-02 john@mail.npxdesigns.com 05/31/07
-
-Issue 1485: Use distutils to package up python part of domapp-tools
-            [Factored out python tests into their own project]
-
-===========================================================
-
-V00-02-01 john@mail.npxdesigns.com 05/23/07
-
-Issue 1457: dmt - make sure HV is set to 0 during pulser tests
-Issue 1465: domapptest.py - report dor-driver, domapp-tools versions in output
-Issue 1443: domapptest.py - lengthen timeout for domapp transition 
-Issue 1444: dmt - fix broken sntest delta t check at beginning of sn data
-Issue 1442: domapptest.py - Don't print empty debugMsgs during test failures
-===========================================================
-
 V00-02-00 jacobsen@mail.npxdesigns.com 05/18/07
 
 Issue 1431: Add new python tests to RPM

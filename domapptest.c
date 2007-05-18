@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
 
   if(getDevFile(filename, BSIZ, argv[optind])) exit(usage());
 
-  int * cyclic = NULL;
+  int * cyclic;
   if(dopoll) {
     cyclic = getCycle(efreq, mfreq, hfreq, dfreq, sfreq);
     if(!cyclic) { fprintf(stderr,"Malloc failed or divide by zero\n"); exit(-1); }
@@ -406,7 +406,7 @@ int main(int argc, char *argv[]) {
     drainMsgs(filep, rdbuf, MAX_MSG_BYTES, 1, 10); /* Show iceboot msgs */
     int nw = write(filep, DOMAPPSTR, strlen(DOMAPPSTR));
     fprintf(stderr,"Wrote %d bytes.\n", nw);
-    usleep(5000000);
+    usleep(1000000);
     drainMsgs(filep, rdbuf, MAX_MSG_BYTES, 1, 20);
     usleep(3000000);  
   }
@@ -528,8 +528,6 @@ int main(int argc, char *argv[]) {
   if(dohv) {
     if(setHighVoltage(filep, bufsiz, hvdac)) exit(-1);
     hvOn = 1;
-  } else {
-    if(highVoltageOff(filep, bufsiz)) exit(-1);
   }
 
   /* Set up local coincidence event selection for buffering */
@@ -839,7 +837,7 @@ int main(int argc, char *argv[]) {
   close(filep);
   if(savemoni) close(monifd);
   if(savemoni) close(hitsfd);
-  if(cyclic != NULL) free(cyclic);
+  free(cyclic);
 
   getTimes(&tstart, &dtsec, &dtusec, &dt);
   if(hadErr) {

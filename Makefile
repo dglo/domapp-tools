@@ -35,7 +35,8 @@ clean:
 	rm -f $(BINS)
 
 INSTALL_BINS = domapptest upload_domapp.pl uda.pl decomp decodemoni \
-               decodeeng decodesn domapp_multitest.pl domapp-versions 
+               decodeeng decodesn domapp_multitest.pl domapp-versions \
+               domapp.py domapptest.py dor.py exc_string.py minitimer.py
 
 install:
 	install domapp-tools-version $(INSTALL_CONF)

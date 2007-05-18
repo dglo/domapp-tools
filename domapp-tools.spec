@@ -37,6 +37,11 @@ install decodeeng            ${RPM_BUILD_ROOT}/usr/local/bin
 install decodesn             ${RPM_BUILD_ROOT}/usr/local/bin
 install domapp_multitest.pl  ${RPM_BUILD_ROOT}/usr/local/bin
 install domapp-versions      ${RPM_BUILD_ROOT}/usr/local/bin
+install domapp.py            ${RPM_BUILD_ROOT}/usr/local/bin
+install domapptest.py        ${RPM_BUILD_ROOT}/usr/local/bin
+install dor.py               ${RPM_BUILD_ROOT}/usr/local/bin
+install exc_string.py        ${RPM_BUILD_ROOT}/usr/local/bin
+install minitimer.py         ${RPM_BUILD_ROOT}/usr/local/bin
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -53,11 +58,24 @@ rm -rf $RPM_BUILD_ROOT
 /usr/local/bin/decodesn
 /usr/local/bin/domapp_multitest.pl
 /usr/local/bin/domapp-versions
+/usr/local/bin/domapp.py
+/usr/local/bin/domapptest.py
+/usr/local/bin/dor.py
+/usr/local/bin/exc_string.py
+/usr/local/bin/minitimer.py
 
 %post
 ln -f -s /usr/local/bin/domapp_multitest.pl /usr/local/bin/dmt
 
 %postun
-[ $1 = 0 ] && rm -f /usr/local/bin/dmt
+rm -f /usr/local/bin/dmt
+
+%changelog
+* Fri May 18 2007 John E. Jacobsen <john@mail.npxdesigns.com>
+- Add python tests
+* Tue Jul 13 2005 John E. Jacobsen <jacobsen@npxdesigns.com>
+- Changes to fit into domapp project
+* Mon Jun 20 2005 Martin C. Stoufer <MCStoufer@lbl.gov>
+- Initial build.
 
 

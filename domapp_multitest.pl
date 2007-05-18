@@ -64,7 +64,6 @@ my $datDuration;
 my $detailed     = 0;
 my $skipLCHB     = 0;
 my $skipFlagChk  = 0;
-my $foreground   = 0;
 
 GetOptions("help|h"          => \$help,
 	   "upload|u=s"      => \$image,
@@ -80,7 +79,6 @@ GetOptions("help|h"          => \$help,
 	   "componly|C"      => \$compOnly,
 	   "nocomp|N"        => \$noComp,
 	   "sn=i"            => \$snmode,
-	   "e"               => \$foreground,
 	   "Y"               => \$skipLCHB,
            "doflasher|F"     => \$doflasher) || die usage;
 
@@ -154,19 +152,13 @@ my $ofh = select(LOG); $| = 1; select $ofh;
 
 print "\nResults to appear in directory $testdir\n\n";
 
-my $kid = 1;
-
-if(! $foreground) {
-    $kid = fork;
-    mydie "Backgrounding fork failed!\n" unless defined $kid;
-}
-
+my $kid = fork;
+mydie "Backgrounding fork failed!\n" unless defined $kid;
 if($kid) {
     print LOG "Test sequence $testdir\n";
     print LOG "domapp-tools version $ver\n\n";
     print LOG "Parameters:\n";
     print LOG "DoLong            = ".($dolong?"TRUE":"false")."\n";
-    print LOG "Foreground        = ".($foreground?"TRUE":"false")."\n";
     print LOG "FPGA              = ".(defined $loadfpga?"$loadfpga":"flash default")."\n";
     print LOG "Test Pgm          = $dat\n";
     print LOG "Total duration   >= $duration sec.\n";
@@ -181,7 +173,7 @@ if($kid) {
     print LOG "Skip eng flag chk = ".($skipFlagChk?"TRUE":"false")."\n";
     print LOG "SN mode           = $snmode\n";
     print LOG "Tests running in background.\n";
-    exit unless $foreground;
+    exit;
 }
 
 my %kidproc;
@@ -973,7 +965,7 @@ sub configMoniTest {
 
 sub domappmode { 
     my $dom = shift;
-    my $cmd = "/usr/local/bin/se.pl $dom domapp READY 2>&1";
+    my $cmd = "/usr/local/bin/se.pl $dom domapp domapp 2>&1";
     my $result = docmd $cmd;
     if($result !~ /SUCCESS/) {
 	return logmsg("domapp change state FAIL.\nResult:\n$result\n\n");
@@ -1241,7 +1233,7 @@ sub doShortHitCollection {
 		.         "t0=$t0, lasthit='$lasthit', firsthit='$firsthit'\n";
 	}
 	# FIXME: check again for desired type
-	if($nhits =~ /^\s*(\d+)$/ && $1 > 0) {
+	if($nhits =~ /^\s+(\d+)$/ && $1 > 0) {
 	    my $nhits = $1;
             my $evrate = $nhits/$dt;
             if($evrate < $pulsrate/3 && !$skipRateChk) {
@@ -1255,7 +1247,7 @@ sub doShortHitCollection {
 	    }
 	} else {
 	    saveFiles($engFile, $monFile, $snFile, $sumFile);
-	    return logmsg "$testname FAIL: didn't get any required trigger data!\n$summary\n";
+	    return logmsg "$testname FAIL: didn't get any forced trigger data!\n$summary\n";
 	}
     }
     # Check for SPE rate consistency if rate is defined and pulser in use:
@@ -1308,17 +1300,15 @@ sub doShortHitCollection {
     my $SNcountsTotal = 0;
     if($doSN && $countFreq > 0) {
 	my @snData = `/usr/local/bin/decodesn $snFile 2>&1`;
-	my $first = 1;
-	foreach my $snline(@snData) {
+	foreach my $snline (@snData) {
 	    if($snline =~ /t=(\d+).+?tratio=(\d+) nbins\s*=\s*(\d+)/) {
 		my $t  = $1;
 		my $tr = $2;
 		my $nb = $3;
-		if((! $first) && $tr > 65536) {
+		if($tr > 65536) {
 		    saveFiles($engFile, $monFile, $snFile, $sumFile);
 		    return logmsg("$testname FAIL: $snFile, tratio=$tr, too large!)!\n$summary\n");
 		}
-		$first = 0;
 	    }
 	    if($snline =~ /(\d+) counts/) {
 		$SNbins ++;
@@ -1590,7 +1580,6 @@ Options:
      -Y:          Skip heartbeat/LC tests
      -g:          Skip trigger flag check in engineering events
      -R:          Randomize tests after first sequential set is complete
-     -e:          Run test in forEground (default: daemonize)
      -sn n:       Test supernova data collection:
                   0 = skip all supernova tests
                   1 = test SN scaler collection only
