@@ -14,7 +14,7 @@ from re import search
 from domapp import *
 import optparse
 from minitimer import MiniTimer
-from slchit import *
+from math import sqrt
 
 def SNClockOk(clock, prevClock, bins, prevBins):
     DT = 65536
@@ -173,7 +173,7 @@ class DOMTest:
     def setRunLength(self, l): self.runLength = l
 
     def getDebugTxt(self):
-        if self.debugMsgs: return "\n\t".join(self.debugMsgs)
+        if self.debugMsgs: return "\n".join(self.debugMsgs)
         else:              return ""
 
     def name(self):
@@ -323,8 +323,147 @@ def unpackMoni(monidata):
         if moniType == 0xCB:
             msg = monidata[10:moniLen]
             yield msg
+        if moniType == 0xCA:
+            kind,    = unpack('b', monidata[10])
+            subkind, = unpack('b', monidata[11])
+            if kind == 2 and subkind == 0x10:
+                txt = "ENABLE HV"
+            elif kind == 2 and subkind == 0x12:
+                txt = "ENABLE HV"
+            elif kind == 2 and subkind == 0x0E:
+                val, = unpack('>h', monidata[12:14])
+                txt = "SET HV(%d)" % val
+            elif kind == 2 and subkind == 0x0D:
+                dac, val = unpack('>bxh', monidata[12:16])
+                txt = "SET DAC(%d<-%d)" % (dac,val)
+            elif kind == 2 and subkind == 0x2D:
+                mode, = unpack('b', monidata[12])
+                txt = "SET LC MODE(%d)" % mode
+            elif kind == 2 and subkind == 0x2F:
+                w = unpack('>LLLL', monidata[12:28])
+                txt = "SET LC WIN(%d %d %d %d)" % w
+            else:
+                txt = "0x%0x-0x%0x" % (kind,subkind)
+            yield "[STATE CHANGE %s]" % txt
         monidata = monidata[moniLen:]
 
+def getLastMoniMsgs(domapp):
+    """
+    Drain buffered monitoring messages - return concatenated
+    as big ASCII string
+    """
+    ret = ""
+    try:
+        while True:
+            monidata = domapp.getMonitorData()
+            if len(monidata) == 0: break
+            for msg in unpackMoni(monidata): ret += msg + "\n"
+    except Exception, e:
+        ret +=("GET MONI DATA FAILED: %s" % exc_string())
+    return ret
+
+class PedestalStabilityTest(DOMTest):
+    "Measure pedestal stability by taking an average over several tries"
+    def __init__(self, card, wire, dom, dor):
+        DOMTest.__init__(self, card, wire, dom, dor,
+                         start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
+        
+    def run(self, fd):
+        domapp = DOMApp(self.card, self.wire, self.dom, fd)        
+        self.result = "PASS"
+        NOMINAL_HV_VOLTS   = 800 # Is this the best value?
+        ATWD_PEDS_PER_LOOP = 100 
+        FADC_PEDS_PER_LOOP = 200 
+        MAX_ALLOWED_RMS    = 1.0
+        HV_TOLERANCE       = 20   # HV must be correct to 10 Volts (20 units)
+        numloops           = 100
+        try:
+            domapp.resetMonitorBuffer()
+            setDefaultDACs(domapp)
+            domapp.setTriggerMode(2)
+            domapp.selectMUX(255)
+            domapp.setMonitoringIntervals()
+
+            ### Turn on HV
+            domapp.enableHV()
+            domapp.setHV(NOMINAL_HV_VOLTS*2)
+            time.sleep(2)
+            hvadc, hvdac = domapp.queryHV()
+            self.debugMsgs.append("HV: read %d V (ADC) %d V (DAC)" % (hvadc/2,hvdac/2))
+            if abs(hvadc-NOMINAL_HV_VOLTS*2) > HV_TOLERANCE:
+                raise Exception("HV deviates too much from set value!")
+            
+            ### Collect pedestals N times
+
+            atwdSum   = [[[0. for samp in xrange(128)] for ch in xrange(4)] for ab in xrange(2)]
+            atwdSumSq = [[[0. for samp in xrange(128)] for ch in xrange(4)] for ab in xrange(2)]
+            # Wheeeee!
+            fadcSum   = [0. for samp in xrange(256)]
+            fadcSumSq = [0. for samp in xrange(256)]
+
+            for loop in xrange(numloops):
+                # Do the collection
+                domapp.collectPedestals(ATWD_PEDS_PER_LOOP,
+                                        ATWD_PEDS_PER_LOOP,
+                                        FADC_PEDS_PER_LOOP)
+                # Check number of forced triggers
+                buf = domapp.getNumPedestals()
+                atwd0, atwd1, fadc = unpack('>LLL', buf)
+                self.debugMsgs.append("Collected %d %d %d pedestals" % (atwd0, atwd1, fadc))
+                if(atwd0 != ATWD_PEDS_PER_LOOP or
+                   atwd1 != ATWD_PEDS_PER_LOOP or
+                   fadc != FADC_PEDS_PER_LOOP): raise Exception("Pedestal collection shortfall!")
+
+                # Read out pedestal sums
+                buf = domapp.getPedestalAverages()
+                self.debugMsgs.append("Got %d bytes of pedestal averages" % len(buf))
+                
+                # Tally sums for RMS
+                # ...not the most efficient impl., but relatively clear:
+                for ab in xrange(2):
+                    for ch in xrange(4):
+                        for samp in xrange(128):
+                            idx = (ab*4 + ch)*128 + samp
+                            val, = unpack('>h', buf[idx*2:idx*2+2])
+                            # self.debugMsgs.append("ATWD[%d][%d][%d] = %2.3f" % (ab,ch,samp,val))
+                            atwdSum[ab][ch][samp]   += float(val)
+                            atwdSumSq[ab][ch][samp] += float(val)**2
+
+                for samp in xrange(256):
+                    idx = 8*128 + samp
+                    val, = unpack('>H', buf[idx*2:idx*2+2])
+                    fadcSum[samp]   += float(val)
+                    fadcSumSq[samp] += float(val)**2
+                    
+            # Compute final RMS
+            maxrms = 0.
+            for ab in xrange(2):
+                for ch in xrange(4):
+                    for samp in xrange(128):
+                        rms = sqrt((atwdSumSq[ab][ch][samp]/float(numloops)) -\
+                                   ((atwdSum[ab][ch][samp]/float(numloops))**2))
+                        self.debugMsgs.append("ATWD rms[%d][%d][%d] = %2.3f" % (ab,ch,samp,rms))
+                        if rms > maxrms: maxrms = rms
+            for samp in xrange(256):
+                rms = sqrt(fadcSumSq[samp]/float(numloops) -\
+                           (fadcSum[samp]/float(numloops))**2)
+                self.debugMsgs.append("FADC rms[%d] = %2.3f" % (samp, rms))
+                if rms > maxrms: maxrms = rms
+
+            ### Turn off HV
+            domapp.setHV(0)
+            domapp.disableHV()
+
+            if maxrms > MAX_ALLOWED_RMS:
+                raise Exception("Maximum allowed RMS (%2.3f) exceeeded (%2.3f)!" %\
+                                (MAX_ALLOWED_RMS, maxrms))
+
+        except Exception, e:
+            self.result = "FAIL"
+            self.debugMsgs.append(exc_string())
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
+            return
+        
 class DeltaCompressionBeaconTest(DOMTest):
     def __init__(self, card, wire, dom, dor):
         DOMTest.__init__(self, card, wire, dom, dor,
@@ -334,11 +473,11 @@ class DeltaCompressionBeaconTest(DOMTest):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         self.result = "PASS"
         try:
+            domapp.resetMonitorBuffer()
             setDefaultDACs(domapp)
             domapp.setTriggerMode(2)
             domapp.setPulser(mode=BEACON, rate=100)
             domapp.selectMUX(255)
-            domapp.resetMonitorBuffer()
             domapp.setMonitoringIntervals()
             # Set delta compression format
             domapp.setDataFormat(2)
@@ -348,27 +487,13 @@ class DeltaCompressionBeaconTest(DOMTest):
         except Exception, e:
             self.result = "FAIL"
             self.debugMsgs.append(exc_string())
-            try:
-                monidata = domapp.getMonitorData()
-                for msg in unpackMoni(monidata):
-                    self.debugMsgs.append(msg)
-            except Exception, e:
-                self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
             return
 
         # collect data
         t = MiniTimer(5000)
         while not t.expired():
-            # Fetch monitoring
-            try:
-                monidata = domapp.getMonitorData()
-            except Exception, e:
-                self.result = "FAIL"
-                self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
-                break
-
-            for msg in unpackMoni(monidata):
-                self.debugMsgs.append(msg)
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
 
             # Fetch hit data
             good = True
@@ -385,6 +510,7 @@ class DeltaCompressionBeaconTest(DOMTest):
             except Exception, e:
                 self.result = "FAIL"
                 self.debugMsgs.append("GET WAVEFORM DATA FAILED: %s" % exc_string())
+                self.debugMsgs.append(getLastMoniMsgs(domapp))
                 break
             
             if not good:
@@ -397,7 +523,8 @@ class DeltaCompressionBeaconTest(DOMTest):
         except Exception, e:
             self.result = "FAIL"
             self.debugMsgs.append("END RUN FAILED: %s" % exc_string())
-
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
+            
 class SNTest(DOMTest):
     def __init__(self, card, wire, dom, dor):
         DOMTest.__init__(self, card, wire, dom, dor, start=DOMTest.STATE_DOMAPP, end=DOMTest.STATE_DOMAPP)
@@ -406,35 +533,27 @@ class SNTest(DOMTest):
         domapp = DOMApp(self.card, self.wire, self.dom, fd)
         self.result = "PASS"
         try:
+            domapp.resetMonitorBuffer()
             setDefaultDACs(domapp)
             domapp.setTriggerMode(2)
             domapp.setPulser(mode=FE_PULSER, rate=100)
             domapp.selectMUX(255)
             domapp.setEngFormat(0, 4*(2,), (32, 0, 0, 0))
-            domapp.resetMonitorBuffer()
             domapp.enableSN(6400, 0)
             domapp.setMonitoringIntervals()
             domapp.startRun()
         except Exception, e:
             self.result = "FAIL"
             self.debugMsgs.append(exc_string())
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
             return
             
         prevBins, prevClock = None, None
 
         for i in xrange(0,self.runLength):
 
-            # Fetch monitoring
-            try:
-                monidata = domapp.getMonitorData()
-            except Exception, e:
-                self.result = "FAIL"
-                self.debugMsgs.append("GET MONI DATA FAILED: %s" % exc_string())
-                break
-
-            for msg in unpackMoni(monidata):
-                self.debugMsgs.append(msg)
-
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
+            
             # Fetch supernova
 
             try:
@@ -442,6 +561,7 @@ class SNTest(DOMTest):
             except Exception, e:
                 self.result = "FAIL"
                 self.debugMsgs.append("GET SN DATA FAILED: %s" % exc_string())
+                self.debugMsgs.append(getLastMoniMsgs(domapp))
                 break
 
             if sndata      == None: continue
@@ -459,6 +579,7 @@ class SNTest(DOMTest):
                 self.result = "FAIL"
                 self.debugMsgs.append("CLOCK CHECK: %d %d %d %d->%d %x->%x" % (i, bytes, fmtid, prevBins,
                                                                                bins, prevClock, clock))
+                self.debugMsgs.append(getLastMoniMsgs(domapp))
                 break
             
             prevClock = clock
@@ -476,7 +597,7 @@ class SNTest(DOMTest):
         except Exception, e:
             self.result = "FAIL"
             self.debugMsgs.append("END RUN FAILED: %s" % exc_string())
-                    
+            self.debugMsgs.append(getLastMoniMsgs(domapp))
 
 class TestingSet:
     "Class for running multiple tests on a group of DOMs in parallel"
@@ -543,7 +664,9 @@ class TestingSet:
             else:
                 self.numfailed += 1
                 dbg = test.getDebugTxt()
+                print "################################################"
                 if len(dbg) > 0: print test.getDebugTxt()
+                print "################################################"
                 if self.stopOnFail: sf = True
             self.numtests += 1
             self.counterLock.release()
@@ -579,7 +702,13 @@ def main():
     p.add_option("-s", "--stop-fail",
                  action="store_true",
                  dest="stopFail",     help="Stop at first failure for each DOM")
-    p.set_defaults(stopFail         = False)
+
+    p.add_option("-V", "--hv-tests",
+                 action="store_true",
+                 dest="doHVTests",    help="Perform HV tests")
+
+    p.set_defaults(stopFail         = False,
+                   doHVTests        = False)
     opt, args = p.parse_args()
     
     dor = Driver()
@@ -588,12 +717,14 @@ def main():
     
     startState = DOMTest.STATE_ICEBOOT # FIXME: what if it's not?
     
-    ListOfTests = (IcebootToConfigboot, CheckConfigboot, ConfigbootToIceboot,
+    ListOfTests = [IcebootToConfigboot, CheckConfigboot, ConfigbootToIceboot,
                    CheckIceboot, IcebootToDomapp, 
-                   GetDomappRelease, DOMIDTest,
-                   DeltaCompressionBeaconTest,
-                   SNTest,
-                   DomappToIceboot)
+                   GetDomappRelease, DOMIDTest, DeltaCompressionBeaconTest,
+                   SNTest, 
+                   DomappToIceboot]
+
+    if opt.doHVTests:
+        ListOfTests.append(PedestalStabilityTest)
     
     testSet = TestingSet(domDict, ListOfTests, opt.stopFail)
     testSet.go()
