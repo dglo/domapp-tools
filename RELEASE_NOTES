@@ -1,9 +1,12 @@
 domapp-tools release notes
 
-Next release:
+V00-02-00 jacobsen@mail.npxdesigns.com 05/18/07
 
+Issue 1431: Add new python tests to RPM
+Issue 1407: domapptest.py - compare multiple sets of collected pedestals, 
+            require deviation to be small 
 Issue 1401: Check for out-of-order timestamps (in supernova data)
-Issue 756: collect pedestals in domapp before taking compressed data
+Issue 0756: collect pedestals in domapp before taking compressed data
 Issue 1269: decodeeng - fix decoder bug in bele.h found by john pretz
 ===========================================================
 
