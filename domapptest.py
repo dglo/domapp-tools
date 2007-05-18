@@ -7,7 +7,6 @@
 from __future__ import generators
 import time, threading, os, sys
 from exc_string import *
-import monitoring
 import os.path
 from dor import Driver
 from re import search

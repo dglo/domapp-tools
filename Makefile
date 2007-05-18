@@ -34,15 +34,11 @@ rpm:
 clean:
 	rm -f $(BINS)
 
+INSTALL_BINS = domapptest upload_domapp.pl uda.pl decomp decodemoni \
+               decodeeng decodesn domapp_multitest.pl domapp-versions \
+               domapp.py domapptest.py dor.py exc_string.py minitimer.py
+
 install:
 	install domapp-tools-version $(INSTALL_CONF)
-	install domapptest           $(INSTALL_BIN)
-	install upload_domapp.pl     $(INSTALL_BIN)
-	install uda.pl               $(INSTALL_BIN)
-	install decomp               $(INSTALL_BIN)
-	install decodemoni           $(INSTALL_BIN)
-	install decodeeng            $(INSTALL_BIN)
-	install decodesn             $(INSTALL_BIN)
-	install domapp_multitest.pl  $(INSTALL_BIN)
-	install domapp-versions      $(INSTALL_BIN)
+	install $(INSTALL_BINS) $(INSTALL_BIN)
 	ln -f -s $(INSTALL_BIN)/domapp_multitest.pl $(INSTALL_BIN)/dmt
