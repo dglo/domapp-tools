@@ -1,5 +1,8 @@
 domapp-tools release notes
 
+Issue 1442: domapptest.py - Don't print empty debugMsgs during test failures
+===========================================================
+
 V00-02-00 jacobsen@mail.npxdesigns.com 05/18/07
 
 Issue 1431: Add new python tests to RPM

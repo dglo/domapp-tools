@@ -172,9 +172,12 @@ class DOMTest:
     def setRunLength(self, l): self.runLength = l
 
     def getDebugTxt(self):
-        if self.debugMsgs: return "\n".join(self.debugMsgs)
-        else:              return ""
-
+        str = ""
+        if self.debugMsgs:
+            for m in self.debugMsgs:
+                if m != "": str += "%s\n" % m
+        return str
+    
     def name(self):
         str = repr(self)
         m = search(r'\.(\S+) instance', str)
@@ -515,7 +518,7 @@ class DeltaCompressionBeaconTest(DOMTest):
             if not good:
                 self.result = "FAIL"
                 break
-            
+
         # end run
         try:
             domapp.endRun()
