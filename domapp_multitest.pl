@@ -1300,8 +1300,8 @@ sub doShortHitCollection {
     my $SNcountsTotal = 0;
     if($doSN && $countFreq > 0) {
 	my @snData = `/usr/local/bin/decodesn $snFile 2>&1`;
-	my $i; for($i=0;$i<(@sndata);$i++) {
-	    $snline = $sndata[$i];
+	my $i; for($i=0;$i<(@snData);$i++) {
+	    $snline = $snData[$i];
 	    if($i > 0 && $snline =~ /t=(\d+).+?tratio=(\d+) nbins\s*=\s*(\d+)/) {
 		my $t  = $1;
 		my $tr = $2;
