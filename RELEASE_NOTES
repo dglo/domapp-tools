@@ -1,5 +1,7 @@
 domapp-tools release notes
 
+Next release:
+Issue 1444: DMT - fix broken sntest delta t check at beginning of sn data
 Issue 1442: domapptest.py - Don't print empty debugMsgs during test failures
 ===========================================================
 
