@@ -1300,16 +1300,17 @@ sub doShortHitCollection {
     my $SNcountsTotal = 0;
     if($doSN && $countFreq > 0) {
 	my @snData = `/usr/local/bin/decodesn $snFile 2>&1`;
-	my $i; for($i=0;$i<(@snData);$i++) {
-	    my $snline = $snData[$i];
+	my $first = 1;
+	foreach my $snline(@snData) {
 	    if($i > 0 && $snline =~ /t=(\d+).+?tratio=(\d+) nbins\s*=\s*(\d+)/) {
 		my $t  = $1;
 		my $tr = $2;
 		my $nb = $3;
-		if($tr > 65536) {
+		if((! $first) && $tr > 65536) {
 		    saveFiles($engFile, $monFile, $snFile, $sumFile);
 		    return logmsg("$testname FAIL: $snFile, tratio=$tr, too large!)!\n$summary\n");
 		}
+		$first = 0;
 	    }
 	    if($snline =~ /(\d+) counts/) {
 		$SNbins ++;
