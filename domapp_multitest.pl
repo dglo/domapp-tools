@@ -1302,7 +1302,7 @@ sub doShortHitCollection {
 	my @snData = `/usr/local/bin/decodesn $snFile 2>&1`;
 	my $first = 1;
 	foreach my $snline(@snData) {
-	    if($i > 0 && $snline =~ /t=(\d+).+?tratio=(\d+) nbins\s*=\s*(\d+)/) {
+	    if($snline =~ /t=(\d+).+?tratio=(\d+) nbins\s*=\s*(\d+)/) {
 		my $t  = $1;
 		my $tr = $2;
 		my $nb = $3;
