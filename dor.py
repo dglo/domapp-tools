@@ -73,11 +73,13 @@ class Driver:
         self.root = root
         f = file(os.path.join(self.root, "revision"))
         revstr = f.read()
-        grp = re.search('\$\Revision:\s*(\S+)\s*\$', revstr)
+        grp = re.search('^(\S+).+?\$\Revision:\s*(\S+)\s*\$', revstr)
         if grp == None:
             self.version = None
+            self.release = None
         else:
-            self.version = grp.group(1)
+            self.release = grp.group(1)
+            self.version = grp.group(2)
         self.scan()
 
     def __getitem__(self, key):
@@ -85,7 +87,7 @@ class Driver:
 	    if c.id == key:
 		return c
 	return None
-   
+
     def _dispatch(self, method, params):
         """Hack around Linux python bug"""
         return apply(getattr(self,method), params)

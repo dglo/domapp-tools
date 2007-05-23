@@ -528,6 +528,8 @@ int main(int argc, char *argv[]) {
   if(dohv) {
     if(setHighVoltage(filep, bufsiz, hvdac)) exit(-1);
     hvOn = 1;
+  } else {
+    if(highVoltageOff(filep, bufsiz)) exit(-1);
   }
 
   /* Set up local coincidence event selection for buffering */

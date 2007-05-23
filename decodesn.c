@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
     if(haveTimeGap(t, tprev, nbinsprev)) {
       fprintf(stderr, "WARNING: gap in time stamps!\n");
     }
-    if(timesOutOfOrder(t, tprev, nbinsprev)) {
+    if(tprev != 0 && timesOutOfOrder(t, tprev, nbinsprev)) {
       fprintf(stderr, "WARNING: time stamps out of order!\n");
     }
     nbinsprev = nbins;

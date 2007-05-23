@@ -9,7 +9,7 @@ import time, threading, os, sys
 from exc_string import *
 import os.path
 from dor import Driver
-from re import search
+from re import search, sub
 from domapp import *
 import optparse
 from minitimer import MiniTimer
@@ -145,7 +145,7 @@ class MiniDor:
     def configbootToIceboot(self): return self.se("r",    ">", 5000)
     def icebootToConfigboot(self): return self.se("boot-serial reboot\r\n", "#", 5000)            
     def icebootToDomapp(self):
-        ok, txt = self.se("domapp\r\n", "domapp", 2000)
+        ok, txt = self.se("domapp\r\n", "domapp", 5000)
         if ok: time.sleep(3)
         return (ok, txt)
 
@@ -172,9 +172,12 @@ class DOMTest:
     def setRunLength(self, l): self.runLength = l
 
     def getDebugTxt(self):
-        if self.debugMsgs: return "\n".join(self.debugMsgs)
-        else:              return ""
-
+        str = ""
+        if self.debugMsgs:
+            for m in self.debugMsgs:
+                if m != "": str += "%s\n" % m
+        return str
+    
     def name(self):
         str = repr(self)
         m = search(r'\.(\S+) instance', str)
@@ -515,7 +518,7 @@ class DeltaCompressionBeaconTest(DOMTest):
             if not good:
                 self.result = "FAIL"
                 break
-            
+
         # end run
         try:
             domapp.endRun()
@@ -695,6 +698,10 @@ class TestingSet:
                                                                     self.numfailed,
                                                                     self.numtests)
 
+def getDomappToolsVersion():
+    f = open("/usr/local/share/domapp-tools-version")
+    return sub(r'\n','', f.readline())
+
 def main():
     p = optparse.OptionParser()
 
@@ -709,8 +716,11 @@ def main():
     p.set_defaults(stopFail         = False,
                    doHVTests        = False)
     opt, args = p.parse_args()
+
+    print "domapp-tools revision: %s" % getDomappToolsVersion()
     
     dor = Driver()
+    print "dor-driver release: %s" % dor.release
     dor.enable_blocking(0)
     domDict = dor.get_active_doms()
     
