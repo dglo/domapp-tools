@@ -9,7 +9,7 @@ import time, threading, os, sys
 from exc_string import *
 import os.path
 from dor import Driver
-from re import search
+from re import search, sub
 from domapp import *
 import optparse
 from minitimer import MiniTimer
@@ -698,6 +698,10 @@ class TestingSet:
                                                                     self.numfailed,
                                                                     self.numtests)
 
+def getDomappToolsVersion():
+    f = open("/usr/local/share/domapp-tools-version")
+    return sub(r'\n','', f.readline())
+
 def main():
     p = optparse.OptionParser()
 
@@ -712,8 +716,11 @@ def main():
     p.set_defaults(stopFail         = False,
                    doHVTests        = False)
     opt, args = p.parse_args()
+
+    print "domapp-tools revision: %s" % getDomappToolsVersion()
     
     dor = Driver()
+    print "dor-driver release: %s" % dor.release
     dor.enable_blocking(0)
     domDict = dor.get_active_doms()
     
