@@ -1,9 +1,10 @@
 domapp-tools release notes
 
 Next release:
+Issue 1457: dmt - make sure HV is set to 0 during pulser tests
 Issue 1465: domapptest.py - report dor-driver, domapp-tools versions in output
 Issue 1443: domapptest.py - lengthen timeout for domapp transition 
-Issue 1444: DMT - fix broken sntest delta t check at beginning of sn data
+Issue 1444: dmt - fix broken sntest delta t check at beginning of sn data
 Issue 1442: domapptest.py - Don't print empty debugMsgs during test failures
 ===========================================================
 
