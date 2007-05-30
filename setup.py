@@ -11,5 +11,6 @@ setup(name="domapp-tools",
       description="Tools for testing domapp and domapp.sbi",
       author="John Jacobsen, NPX Designs, Inc. for UW-Madison",
       author_email="john@mail.npxdesigns.com",
+      url="http://www.npxdesigns.com",
       packages=["domapptools"],
       )
