@@ -11,6 +11,7 @@ def getDomappToolsVersion():
     f = file("domapp-tools-version","r")
     version = f.readline()
     version = version.rstrip()
+    version = sub('-', '.', version)
     return version
 
 version = getDomappToolsVersion()
