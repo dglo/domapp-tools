@@ -1,0 +1,3 @@
+README.txt
+setup.py
+recursive-include domapptools *
