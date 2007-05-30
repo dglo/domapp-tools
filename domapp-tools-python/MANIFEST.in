@@ -1,4 +1,4 @@
 include README.txt
 include setup.py
-include domapp-tools-version
+include VERSION
 recursive-include domapptools *
