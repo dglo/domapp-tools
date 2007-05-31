@@ -1,6 +1,12 @@
 domapp-tools release notes
+V00-02-02 john@mail.npxdesigns.com 05/31/07
 
-V00-02-01 jacobsen@mail.npxdesigns.com 05/23/07
+Issue 1485: Use distutils to package up python part of domapp-tools
+            [Factored out python tests into their own project]
+
+===========================================================
+
+V00-02-01 john@mail.npxdesigns.com 05/23/07
 
 Issue 1457: dmt - make sure HV is set to 0 during pulser tests
 Issue 1465: domapptest.py - report dor-driver, domapp-tools versions in output
