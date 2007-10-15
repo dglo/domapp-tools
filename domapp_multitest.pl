@@ -965,7 +965,7 @@ sub configMoniTest {
 
 sub domappmode { 
     my $dom = shift;
-    my $cmd = "/usr/local/bin/se.pl $dom domapp domapp 2>&1";
+    my $cmd = "/usr/local/bin/se.pl $dom domapp READY 2>&1";
     my $result = docmd $cmd;
     if($result !~ /SUCCESS/) {
 	return logmsg("domapp change state FAIL.\nResult:\n$result\n\n");
