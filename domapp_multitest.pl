@@ -64,6 +64,7 @@ my $datDuration;
 my $detailed     = 0;
 my $skipLCHB     = 0;
 my $skipFlagChk  = 0;
+my $foreground   = 0;
 
 GetOptions("help|h"          => \$help,
 	   "upload|u=s"      => \$image,
@@ -79,6 +80,7 @@ GetOptions("help|h"          => \$help,
 	   "componly|C"      => \$compOnly,
 	   "nocomp|N"        => \$noComp,
 	   "sn=i"            => \$snmode,
+	   "e"               => \$foreground,
 	   "Y"               => \$skipLCHB,
            "doflasher|F"     => \$doflasher) || die usage;
 
@@ -152,13 +154,19 @@ my $ofh = select(LOG); $| = 1; select $ofh;
 
 print "\nResults to appear in directory $testdir\n\n";
 
-my $kid = fork;
-mydie "Backgrounding fork failed!\n" unless defined $kid;
+my $kid = 1;
+
+if(! $foreground) {
+    $kid = fork;
+    mydie "Backgrounding fork failed!\n" unless defined $kid;
+}
+
 if($kid) {
     print LOG "Test sequence $testdir\n";
     print LOG "domapp-tools version $ver\n\n";
     print LOG "Parameters:\n";
     print LOG "DoLong            = ".($dolong?"TRUE":"false")."\n";
+    print LOG "Foreground        = ".($foreground?"TRUE":"false")."\n";
     print LOG "FPGA              = ".(defined $loadfpga?"$loadfpga":"flash default")."\n";
     print LOG "Test Pgm          = $dat\n";
     print LOG "Total duration   >= $duration sec.\n";
@@ -1582,6 +1590,7 @@ Options:
      -Y:          Skip heartbeat/LC tests
      -g:          Skip trigger flag check in engineering events
      -R:          Randomize tests after first sequential set is complete
+     -e:          Run test in forEground (default: daemonize)
      -sn n:       Test supernova data collection:
                   0 = skip all supernova tests
                   1 = test SN scaler collection only
