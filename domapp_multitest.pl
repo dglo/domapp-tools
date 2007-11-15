@@ -181,7 +181,7 @@ if($kid) {
     print LOG "Skip eng flag chk = ".($skipFlagChk?"TRUE":"false")."\n";
     print LOG "SN mode           = $snmode\n";
     print LOG "Tests running in background.\n";
-    exit;
+    exit unless $foreground;
 }
 
 my %kidproc;
