@@ -1,22 +1,4 @@
 domapp-tools release notes
-
-V00-02-06 jkelley@icecube.wisc.edu 11/25/2019
-
-Issue 8757: decodesn doesn't accept -p payload format argument
-
-===========================================================
-
-V00-02-05 jkelley@icecube.wisc.edu 10/16/17
-
-Issue 8279: RPM upgrade resulted in no dmt alias installed
-Issue 8175: domapptest lost compatibility?
-
-===========================================================
-
-V00-02-04 john@mail.npxdesigns.com 02/29/08
-
-Issue 2384: "Forced trigger data" failures with DMT in 431, 432(rc).
-
 ===========================================================
 
 V00-02-03 john@mail.npxdesigns.com 11/19/07

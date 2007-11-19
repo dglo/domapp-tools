@@ -1241,7 +1241,7 @@ sub doShortHitCollection {
 		.         "t0=$t0, lasthit='$lasthit', firsthit='$firsthit'\n";
 	}
 	# FIXME: check again for desired type
-	if($nhits =~ /^\s*(\d+)$/ && $1 > 0) {
+	if($nhits =~ /^\s+(\d+)$/ && $1 > 0) {
 	    my $nhits = $1;
             my $evrate = $nhits/$dt;
             if($evrate < $pulsrate/3 && !$skipRateChk) {
@@ -1255,7 +1255,7 @@ sub doShortHitCollection {
 	    }
 	} else {
 	    saveFiles($engFile, $monFile, $snFile, $sumFile);
-	    return logmsg "$testname FAIL: didn't get any required trigger data!\n$summary\n";
+	    return logmsg "$testname FAIL: didn't get any forced trigger data!\n$summary\n";
 	}
     }
     # Check for SPE rate consistency if rate is defined and pulser in use:
