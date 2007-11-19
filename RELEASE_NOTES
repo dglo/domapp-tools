@@ -1,10 +1,13 @@
-Next:
+domapp-tools release notes
+===========================================================
 
+V00-02-03 john@mail.npxdesigns.com 11/19/07
+
+Issue 2005: dmt: Allow user to run in foreground (don't 'daemonize')
 Issue 1846: dmt: Wait for DOMAPP READY after starting domapp
 
 ===========================================================
 
-domapp-tools release notes
 V00-02-02 john@mail.npxdesigns.com 05/31/07
 
 Issue 1485: Use distutils to package up python part of domapp-tools
