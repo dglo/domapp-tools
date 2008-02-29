@@ -60,13 +60,4 @@ ln -f -s /usr/local/bin/domapp_multitest.pl /usr/local/bin/dmt
 %postun
 rm -f /usr/local/bin/dmt
 
-%changelog
-* 5/30/07 JEJ move python code to its own RPM
-* Fri May 18 2007 John E. Jacobsen <john@mail.npxdesigns.com>
-- Add python tests
-* Tue Jul 13 2005 John E. Jacobsen <jacobsen@npxdesigns.com>
-- Changes to fit into domapp project
-* Mon Jun 20 2005 Martin C. Stoufer <MCStoufer@lbl.gov>
-- Initial build.
-
 

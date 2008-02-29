@@ -1,6 +1,12 @@
 domapp-tools release notes
 ===========================================================
 
+V00-02-04 john@mail.npxdesigns.com 02/29/08
+
+Issue 2384: "Forced trigger data" failures with DMT in 431, 432(rc).
+
+===========================================================
+
 V00-02-03 john@mail.npxdesigns.com 11/19/07
 
 Issue 2005: dmt: Allow user to run in foreground (don't 'daemonize')
