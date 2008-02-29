@@ -1255,7 +1255,7 @@ sub doShortHitCollection {
 	    }
 	} else {
 	    saveFiles($engFile, $monFile, $snFile, $sumFile);
-	    return logmsg "$testname FAIL: didn't get any forced trigger data!\n$summary\n";
+	    return logmsg "$testname FAIL: didn't get any required trigger data!\n$summary\n";
 	}
     }
     # Check for SPE rate consistency if rate is defined and pulser in use:
