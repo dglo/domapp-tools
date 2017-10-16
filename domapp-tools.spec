@@ -58,6 +58,6 @@ rm -rf $RPM_BUILD_ROOT
 ln -f -s /usr/local/bin/domapp_multitest.pl /usr/local/bin/dmt
 
 %postun
-rm -f /usr/local/bin/dmt
+[ $1 = 0 ] && rm -f /usr/local/bin/dmt
 
 
