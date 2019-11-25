@@ -1,4 +1,9 @@
 domapp-tools release notes
+
+V00-02-06 jkelley@icecube.wisc.edu 11/25/2019
+
+Issue 8757: decodesn doesn't accept -p payload format argument
+
 ===========================================================
 
 V00-02-05 jkelley@icecube.wisc.edu 10/16/17
